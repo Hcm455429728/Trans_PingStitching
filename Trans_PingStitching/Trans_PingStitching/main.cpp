@@ -39,6 +39,295 @@ using namespace Eigen;
 
 
 
+//csp
+/*
+para:任意大小的矩阵 u v M D
+return:存放了xcam, ycam, zcam的容器
+func:function [xcam, ycam, zcam] = trans_persp2cam(u, v, M, D)
+*/
+vector<MatrixXd> trans_persp2cam(MatrixXd& u, MatrixXd& v, MatrixXd& M, MatrixXd& D)
+{
+	double fx = M(0, 0), fy = M(1, 1);
+	double cx = M(0, 2), cy = M(1, 2);
+	double k1, k2, p1, p2, k3, k4, k5, k6;
+	if (D.size() != 0)
+	{
+		k1 = D(0); k2 = D(1); p1 = D(2); p2 = D(3);
+		k3 = D(4); k4 = D(5); k5 = D(6); k6 = D(7);
+	}
+	MatrixXd xcam, ycam, zcam;
+	//x_d = (u - cx) / fx; “矩阵-常数”的操作 //R.array() -= s; ----> R = R - s
+	xcam = (u.array() - cx) / fx;
+	ycam = (v.array() - cy) / fy;
+
+	////测试输出 没有问题
+	//printMatrix(xcam);
+	//cout << "------" << endl;
+	//printMatrix(ycam);
+
+	//if D!=0 跳过了
+	zcam.setOnes(xcam.rows(), xcam.cols());
+	vector<MatrixXd> res;
+	res.push_back(xcam);
+	res.push_back(ycam);
+	res.push_back(zcam);
+	return res;
+}
+
+/*
+para:任意大小的矩阵 xcam ycam zcam fe
+return:存放了u, v的容器
+func:function [u, v] = trans_cam2equi(xcam, ycam, zcam, fe)
+*/
+vector<MatrixXd> trans_cam2equi(MatrixXd& xcam, MatrixXd& ycam, MatrixXd& zcam, double fe)
+{
+	MatrixXd rr = xcam.array().square() + ycam.array().square() + zcam.array().square();//matlab中.^2是每个元素求平方
+	rr = rr.array().sqrt();// sqrt(rr),输出没有问题
+
+	//theta = acos(zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2)) .* (2 * (xcam > 0) - 1) ;
+	MatrixXd thera;//temp1.*temp2;	
+	MatrixXd temp1 = xcam.array().square() + zcam.array().square();
+	temp1 = temp1.array().sqrt();//sqrt(xcam . ^ 2 + zcam . ^ 2)
+	temp1 = zcam.array() / temp1.array();//zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2)
+	temp1 = temp1.array().acos(); //acos(zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2))
+
+	MatrixXd temp2(xcam.rows(), xcam.cols());
+	for (int i = 0; i < xcam.rows(); i++)//(xcam > 0)
+	{
+		for (int j = 0; j < xcam.cols(); j++)
+		{
+			if (xcam(i, j)>0)
+				temp2(i, j) = 2;//本来应该=1，直接等于2，后面不用再*2
+			else
+				temp2(i, j) = 0;
+		}
+	}
+	temp2.array() -= 1;//(2 * (xcam > 0) - 1)
+	thera = temp1.array()*temp2.array();//.* //输出正确
+
+
+
+	//phi = asin(ycam ./ rr);
+	MatrixXd phi = ycam.array() / rr.array();
+	phi = phi.array().asin(); //输出正确
+
+	vector<MatrixXd> res;
+	res.push_back(fe*thera);
+	res.push_back(fe*phi);
+	return res;
+}
+
+/*
+para:矩阵 x(1xN) y(1xN) R(3x3) M(3x3) D(一直都是0) double型fe
+return:存放了u, v的容器
+func:function [u, v] = trans_persp2equi(x, y, R, M, D, fe)
+*/
+vector<MatrixXd> trans_persp2equi(MatrixXd& x, MatrixXd& y, MatrixXd& R, MatrixXd& M, MatrixXd& D, double fe)
+{
+	vector<MatrixXd> xyz_cam = trans_persp2cam(x, y, M, D);
+	MatrixXd xcam = xyz_cam[0];
+	MatrixXd ycam = xyz_cam[1];
+	MatrixXd zcam = xyz_cam[2];
+	MatrixXd xr = R(0, 0) * xcam + R(0, 1) * ycam + R(0, 2) * zcam;
+	MatrixXd yr = R(1, 0) * xcam + R(1, 1) * ycam + R(1, 2) * zcam;
+	MatrixXd zr = R(2, 0) * xcam + R(2, 1) * ycam + R(2, 2) * zcam;
+
+	//测试输出,没有问题
+
+	vector<MatrixXd> uv = trans_cam2equi(xr, yr, zr, fe);
+	return uv;
+}
+
+//computing mosaic parameters
+/*生产1到n的行向量*/
+MatrixXd OnetoN(int n)
+{
+	assert(n > 0);
+	MatrixXd res(1, n);
+	for (int i = 0; i < n; i++)
+		res(0, i) = i + 1;
+	return res;
+}
+/*生产m到n的行向量*/
+MatrixXd MtoN(double m, double n)
+{
+	assert(n > m);
+	int size = n - m + 1;
+	MatrixXd res(1, size);
+	for (int i = 0; i < size; i++, m++)
+		res(0, i) = m;
+	return res;
+}
+/*cat函数实现，p内各个mat的行一致*/
+MatrixXd cat(vector<MatrixXd>& p)
+{
+	assert(p.size()>0);
+	int col = 0;
+	for (int i = 0; i < p.size(); i++)
+		col += p[i].cols();//按列拼接，行数不变
+
+	MatrixXd res(p[0].rows(), col);
+	int num = 0;
+	for (int row = 0; row < p[0].rows(); row++)
+	{
+		for (int i = 0; i < p.size(); i++)//每个mat
+		{
+			for (int j = 0; j < p[i].cols(); j++)//某个mat的列
+			{
+				res(row, num) = p[i](row, j);
+				num++;
+			}
+		}
+	}
+	return res;
+}
+
+/*
+para:M(im_n,3,3),imsize(im_n,3) , im_n:图像张数
+return:输出可以自行选择
+*/
+void comput_mosaic_parameters(vector<MatrixXd>& M, MatrixXd& imsize, vector<MatrixXd>& R, MatrixXd& D, int im_n)
+{
+	int refi = 1;//上面赋值为1；
+	double fe = max(M[refi - 1](0, 0), M[refi - 1](1, 1));//下标从0开始的，都要减一
+
+	vector<MatrixXd> ubox(im_n);
+	vector<MatrixXd> vbox(im_n);
+	vector<MatrixXd> ubox_(im_n);
+	vector<MatrixXd> vbox_(im_n);
+	MatrixXd ubox_all_;
+	MatrixXd vbox_all_;
+	MatrixXd part1, part2, part3, part4;//ubox\vbox都是由四部分组成
+
+	vector<MatrixXd> ubox_vec;
+	vector<MatrixXd> vbox_vec;//for matlab cat
+
+	for (int i = 0; i < im_n; i++)
+	{
+		//ubox{i} = [1:imsize(i,2)  1:imsize(i,2)  ones(1,imsize(i,1))  imsize(i,2)*ones(1,imsize(i,1))] ;
+		part1 = OnetoN(imsize(i, 1));//1：第i幅图片的列数
+		part2 = part1;
+		part3.setOnes(1, imsize(i, 0));//i幅图片行数个1
+		part4.setConstant(1, imsize(i, 0), imsize(i, 1));
+		ubox[i].resize(1, 2 * (imsize(i, 1) + imsize(i, 0)));
+		ubox[i] << part1, part2, part3, part4;
+
+		//vbox{i} = [ones(1,imsize(i,2))  imsize(i,1)*ones(1,imsize(i,2))  1:imsize(i,1)        1:imsize(i,1) ];
+		part1.setOnes(1, imsize(i, 1));//i幅图片的列数个1
+		part2.setConstant(1, imsize(i, 1), imsize(i, 0));
+		part3 = OnetoN(imsize(i, 0));//1：第i幅图片的行数
+		part4 = part3;
+		vbox[i].resize(1, 2 * (imsize(i, 1) + imsize(i, 0)));
+		vbox[i] << part1, part2, part3, part4;
+
+		//[ubox_{i}, vbox_{i}] =  trans_persp2equi(ubox{i}, vbox{i}, R{i}', M{i}, D{i}, fe);
+		MatrixXd temp = R[i];
+		R[i] = temp.transpose();//转置要用中间变量，不支持自复制
+		vector<MatrixXd> uv = trans_persp2equi(ubox[i], vbox[i], R[i], M[i], D, fe);
+		ubox_[i] = uv[0];
+		vbox_[i] = uv[1];
+
+		ubox_vec.push_back(ubox_[i]);
+		vbox_vec.push_back(vbox_[i]);//for matlab cat
+	}
+
+	ubox_all_ = cat(ubox_vec);
+	vbox_all_ = cat(vbox_vec);/*ubox_all_ << ubox_[0], ubox_[1], ubox_[2], ubox_[3];  vbox_all_ << vbox_[0], vbox_[1], vbox_[2], vbox_[3];*/
+
+
+	double u0 = ubox_all_.minCoeff();
+	double u1 = ubox_all_.maxCoeff();
+	MatrixXd ur = MtoN(u0, u1);
+	double v0 = vbox_all_.minCoeff();
+	double v1 = vbox_all_.maxCoeff();
+	MatrixXd vr = MtoN(v0, v1);
+	double mosaicw = ur.cols();
+	double mosaich = vr.cols();
+
+	MatrixXd m_u0_, m_u1_, m_v0_, m_v1_, imw_, imh_;
+	m_u0_.setOnes(im_n, 1);
+	m_u1_.setOnes(im_n, 1);
+	m_v0_.setOnes(im_n, 1);
+	m_v1_.setOnes(im_n, 1);
+	imw_.setOnes(im_n, 1);
+	imh_.setOnes(im_n, 1);
+
+	for (int i = 0; i < im_n; i++)
+	{
+		double margin = 0.2 * min(imsize(0, 0), imsize(0, 1));
+		double u0_im_ = max(ubox_[i].minCoeff() - margin, u0);
+		double u1_im_ = min(ubox_[i].maxCoeff() + margin, u1);
+		double v0_im_ = max(vbox_[i].minCoeff() - margin, v0);
+		double v1_im_ = min(vbox_[i].maxCoeff() + margin, v1);
+		m_u0_(i, 0) = int(u0_im_ - u0 + 1) + 1;
+		m_u1_(i, 0) = int(u1_im_ - u0 + 1);
+		m_v0_(i, 0) = int(v0_im_ - v0 + 1) + 1;
+		m_v1_(i, 0) = int(v1_im_ - v0 + 1);
+		imw_(i, 0) = int(m_u1_(i) - m_u0_(i) + 1); //最后每张图的长宽
+		imh_(i, 0) = int(m_v1_(i) - m_v0_(i) + 1);
+	}
+}
+
+//测试代码
+void test_comput_mosaic_parameters()
+{
+	vector<MatrixXd> M;
+	MatrixXd m1(3, 3), m2(3, 3), m3(3, 3), m4(3, 3);
+	m1 << 10743.3280958030, 0, 521,
+		0, 10743.3280958030, 119.500000000000,
+		0, 0, 1;
+	m2 << 10715.4680850299, 0, 521,
+		0, 10715.4680850299, 119.500000000000,
+		0, 0, 1;
+	m3 << 10786.0125733829, 0, 521,
+		0, 10786.0125733829, 119.500000000000,
+		0, 0, 1;
+	m4 << 10650.4459525396, 0, 521,
+		0, 10650.4459525396, 119.500000000000,
+		0, 0, 1;
+	M.push_back(m1);
+	M.push_back(m2);
+	M.push_back(m3);
+	M.push_back(m4);
+
+
+	MatrixXd imsize(4, 3);
+	imsize << 239, 1042, 3,
+		239, 1042, 3,
+		239, 1042, 3,
+		239, 1042, 3;
+
+	vector<MatrixXd> R;
+	MatrixXd r1(3, 3), r2(3, 3), r3(3, 3), r4(3, 3);
+
+	r1 << 0.999254119147841, -0.0109239618370480, 0.0370387961987915,
+		0.0109348400755766, 0.999940208696513, -9.11290041423332e-05,
+		-0.0370355861111237, 0.000496074345788726, 0.999313824217222;
+	r2 << 0.999914984813287, -0.000292620453986326, 0.0130360085575790,
+		0.000292819287340547, 0.999999957039401, -1.33439494320460e-05,
+		-0.0130360040928317, 1.71600097292891e-05, 0.999915027541254;
+	r3 << 0.999890456865642, 0.00741340821192752, -0.0128107629633023,
+		-0.00741307579663919, 0.999972520079759, 7.34341102594884e-05,
+		0.0128109553215939, 2.15410908028565e-05, 0.999917936112624;
+	r4 << 0.999298181098811, 0.00381266859973690, -0.0372640417930682,
+		-0.00381416120190226, 0.999992725579099, 3.10356377494695e-05,
+		0.0372638890473453, 0.000111117206080898, 0.999305453915886;
+	R.push_back(r1);
+	R.push_back(r2);
+	R.push_back(r3);
+	R.push_back(r4);
+
+	MatrixXd D;
+	D.setZero(4, 1);
+
+	int im_n = 4;
+	comput_mosaic_parameters(M, imsize, R, D, im_n);
+}
+
+
+
+
+
 int main(int argc, char *argv[]){
 
 
