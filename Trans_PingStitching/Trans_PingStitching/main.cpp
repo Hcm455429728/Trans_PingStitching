@@ -27,6 +27,9 @@
 //////////////////opencv
 
 
+#include "transforms.h"
+/////////////////自定义transforms
+
 
 #include <iostream>  
 #include <math.h>
@@ -39,104 +42,6 @@ using namespace Eigen;
 
 
 
-//csp
-/*
-para:任意大小的矩阵 u v M D
-return:存放了xcam, ycam, zcam的容器
-func:function [xcam, ycam, zcam] = trans_persp2cam(u, v, M, D)
-*/
-vector<MatrixXd> trans_persp2cam(MatrixXd& u, MatrixXd& v, MatrixXd& M, MatrixXd& D)
-{
-	double fx = M(0, 0), fy = M(1, 1);
-	double cx = M(0, 2), cy = M(1, 2);
-	double k1, k2, p1, p2, k3, k4, k5, k6;
-	if (D.size() != 0)
-	{
-		k1 = D(0); k2 = D(1); p1 = D(2); p2 = D(3);
-		k3 = D(4); k4 = D(5); k5 = D(6); k6 = D(7);
-	}
-	MatrixXd xcam, ycam, zcam;
-	//x_d = (u - cx) / fx; “矩阵-常数”的操作 //R.array() -= s; ----> R = R - s
-	xcam = (u.array() - cx) / fx;
-	ycam = (v.array() - cy) / fy;
-
-	////测试输出 没有问题
-	//printMatrix(xcam);
-	//cout << "------" << endl;
-	//printMatrix(ycam);
-
-	//if D!=0 跳过了
-	zcam.setOnes(xcam.rows(), xcam.cols());
-	vector<MatrixXd> res;
-	res.push_back(xcam);
-	res.push_back(ycam);
-	res.push_back(zcam);
-	return res;
-}
-
-/*
-para:任意大小的矩阵 xcam ycam zcam fe
-return:存放了u, v的容器
-func:function [u, v] = trans_cam2equi(xcam, ycam, zcam, fe)
-*/
-vector<MatrixXd> trans_cam2equi(MatrixXd& xcam, MatrixXd& ycam, MatrixXd& zcam, double fe)
-{
-	MatrixXd rr = xcam.array().square() + ycam.array().square() + zcam.array().square();//matlab中.^2是每个元素求平方
-	rr = rr.array().sqrt();// sqrt(rr),输出没有问题
-
-	//theta = acos(zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2)) .* (2 * (xcam > 0) - 1) ;
-	MatrixXd thera;//temp1.*temp2;	
-	MatrixXd temp1 = xcam.array().square() + zcam.array().square();
-	temp1 = temp1.array().sqrt();//sqrt(xcam . ^ 2 + zcam . ^ 2)
-	temp1 = zcam.array() / temp1.array();//zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2)
-	temp1 = temp1.array().acos(); //acos(zcam . / sqrt(xcam . ^ 2 + zcam . ^ 2))
-
-	MatrixXd temp2(xcam.rows(), xcam.cols());
-	for (int i = 0; i < xcam.rows(); i++)//(xcam > 0)
-	{
-		for (int j = 0; j < xcam.cols(); j++)
-		{
-			if (xcam(i, j)>0)
-				temp2(i, j) = 2;//本来应该=1，直接等于2，后面不用再*2
-			else
-				temp2(i, j) = 0;
-		}
-	}
-	temp2.array() -= 1;//(2 * (xcam > 0) - 1)
-	thera = temp1.array()*temp2.array();//.* //输出正确
-
-
-
-	//phi = asin(ycam ./ rr);
-	MatrixXd phi = ycam.array() / rr.array();
-	phi = phi.array().asin(); //输出正确
-
-	vector<MatrixXd> res;
-	res.push_back(fe*thera);
-	res.push_back(fe*phi);
-	return res;
-}
-
-/*
-para:矩阵 x(1xN) y(1xN) R(3x3) M(3x3) D(一直都是0) double型fe
-return:存放了u, v的容器
-func:function [u, v] = trans_persp2equi(x, y, R, M, D, fe)
-*/
-vector<MatrixXd> trans_persp2equi(MatrixXd& x, MatrixXd& y, MatrixXd& R, MatrixXd& M, MatrixXd& D, double fe)
-{
-	vector<MatrixXd> xyz_cam = trans_persp2cam(x, y, M, D);
-	MatrixXd xcam = xyz_cam[0];
-	MatrixXd ycam = xyz_cam[1];
-	MatrixXd zcam = xyz_cam[2];
-	MatrixXd xr = R(0, 0) * xcam + R(0, 1) * ycam + R(0, 2) * zcam;
-	MatrixXd yr = R(1, 0) * xcam + R(1, 1) * ycam + R(1, 2) * zcam;
-	MatrixXd zr = R(2, 0) * xcam + R(2, 1) * ycam + R(2, 2) * zcam;
-
-	//测试输出,没有问题
-
-	vector<MatrixXd> uv = trans_cam2equi(xr, yr, zr, fe);
-	return uv;
-}
 
 //computing mosaic parameters
 /*生产1到n的行向量*/
@@ -184,9 +89,8 @@ MatrixXd cat(vector<MatrixXd>& p)
 
 /*
 para:M(im_n,3,3),imsize(im_n,3) , im_n:图像张数
-return:输出可以自行选择
 */
-void comput_mosaic_parameters(vector<MatrixXd>& M, MatrixXd& imsize, vector<MatrixXd>& R, MatrixXd& D, int im_n)
+void comput_mosaic_parameters(vector<MatrixXd>& M, MatrixXd& imsize, vector<MatrixXd>& R, vector<MatrixXd>& D, int im_n)
 {
 	int refi = 1;//上面赋值为1；
 	double fe = max(M[refi - 1](0, 0), M[refi - 1](1, 1));//下标从0开始的，都要减一
@@ -221,16 +125,13 @@ void comput_mosaic_parameters(vector<MatrixXd>& M, MatrixXd& imsize, vector<Matr
 		vbox[i] << part1, part2, part3, part4;
 
 		//[ubox_{i}, vbox_{i}] =  trans_persp2equi(ubox{i}, vbox{i}, R{i}', M{i}, D{i}, fe);
-		MatrixXd temp = R[i];
-		R[i] = temp.transpose();//转置要用中间变量，不支持自复制
-		vector<MatrixXd> uv = trans_persp2equi(ubox[i], vbox[i], R[i], M[i], D, fe);
-		ubox_[i] = uv[0];
-		vbox_[i] = uv[1];
+		MatrixXd R_Trans = R[i];
+		R_Trans = R[i].transpose();//转置要用中间变量，不支持自复制
+		trans_persp2equi(ubox_[i], vbox_[i], ubox[i], vbox[i], R_Trans, M[i], D[i], fe);
 
 		ubox_vec.push_back(ubox_[i]);
 		vbox_vec.push_back(vbox_[i]);//for matlab cat
 	}
-
 	ubox_all_ = cat(ubox_vec);
 	vbox_all_ = cat(vbox_vec);/*ubox_all_ << ubox_[0], ubox_[1], ubox_[2], ubox_[3];  vbox_all_ << vbox_[0], vbox_[1], vbox_[2], vbox_[3];*/
 
@@ -267,8 +168,7 @@ void comput_mosaic_parameters(vector<MatrixXd>& M, MatrixXd& imsize, vector<Matr
 		imh_(i, 0) = int(m_v1_(i) - m_v0_(i) + 1);
 	}
 }
-
-//测试代码
+/*测试comput_mosaic_parameters*/
 void test_comput_mosaic_parameters()
 {
 	vector<MatrixXd> M;
@@ -317,13 +217,11 @@ void test_comput_mosaic_parameters()
 	R.push_back(r3);
 	R.push_back(r4);
 
-	MatrixXd D;
-	D.setZero(4, 1);
-
 	int im_n = 4;
+	vector<MatrixXd> D(im_n, MatrixXd::Zero(1, 1));
+
 	comput_mosaic_parameters(M, imsize, R, D, im_n);
 }
-
 
 
 
