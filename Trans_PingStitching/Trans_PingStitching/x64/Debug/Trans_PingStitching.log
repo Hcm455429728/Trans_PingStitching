@@ -1,17 +1,53 @@
-﻿生成启动时间为 2020/3/28 21:09:34。
-     1>项目“D:\code\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”在节点 2 上(Build 个目标)。
+﻿生成启动时间为 2020/4/7 9:27:25。
+     1>项目“D:\code\Git_table\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc120.pdb" /Gd /TP /errorReport:prompt main.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc120.pdb" /Gd /TP /errorReport:prompt main.cpp transforms.cpp
+         transforms.cpp
          main.cpp
-     1>main.cpp(58): warning C4267: “初始化”: 从“size_t”转换到“const int”，可能丢失数据
-     1>main.cpp(80): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(224): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(300): warning C4551: 缺少参数列表的函数调用
+     1>main.cpp(85): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(113): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(227): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(316): warning C4551: 缺少参数列表的函数调用
+     1>main.cpp(568): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(605): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(631): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(632): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(633): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(634): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(649): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(650): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(691): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(693): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(694): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+     1>main.cpp(756): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
+                 main.cpp(612) : 忽略“i”的定义
+                 main.cpp(427) : 使用“i”的定义
+         正在生成代码...
        Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"D:\code\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe" /INCREMENTAL /NOLOGO libeng.lib libmat.lib libmex.lib libmx.lib mclmcrrt.lib mclmcr.lib RewGlobal.lib opencv_ml2413d.lib opencv_calib3d2413d.lib opencv_contrib2413d.lib opencv_core2413d.lib opencv_features2d2413d.lib opencv_flann2413d.lib opencv_gpu2413d.lib opencv_highgui2413d.lib opencv_imgproc2413d.lib opencv_legacy2413d.lib opencv_objdetect2413d.lib opencv_ts2413d.lib opencv_video2413d.lib opencv_nonfree2413d.lib opencv_ocl2413d.lib opencv_photo2413d.lib opencv_stitching2413d.lib opencv_superres2413d.lib opencv_videostab2413d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:\code\Trans_PingStitching\x64\Debug\Trans_PingStitching.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\code\Trans_PingStitching\x64\Debug\Trans_PingStitching.lib" /MACHINE:X64 x64\Debug\main.obj
-         Trans_PingStitching.vcxproj -> D:\code\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe
-     1>已完成生成项目“D:\code\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”(Build 个目标)的操作。
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe" /INCREMENTAL /NOLOGO libeng.lib libmat.lib libmex.lib libmx.lib mclmcrrt.lib mclmcr.lib RewGlobal.lib opencv_ml2413d.lib opencv_calib3d2413d.lib opencv_contrib2413d.lib opencv_core2413d.lib opencv_features2d2413d.lib opencv_flann2413d.lib opencv_gpu2413d.lib opencv_highgui2413d.lib opencv_imgproc2413d.lib opencv_legacy2413d.lib opencv_objdetect2413d.lib opencv_ts2413d.lib opencv_video2413d.lib opencv_nonfree2413d.lib opencv_ocl2413d.lib opencv_photo2413d.lib opencv_stitching2413d.lib opencv_superres2413d.lib opencv_videostab2413d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.lib" /MACHINE:X64 x64\Debug\main.obj
+         x64\Debug\transforms.obj
+         LINK : 没有找到 D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe 或上一个增量链接没有生成它；正在执行完全链接
+         Trans_PingStitching.vcxproj -> D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe
+     1>已完成生成项目“D:\code\Git_table\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”(Build 个目标)的操作。
 
 生成成功。
 
-已用时间 00:00:04.33
+已用时间 00:00:08.83
