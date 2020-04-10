@@ -33,7 +33,12 @@
 #include <vector>
 #include <unordered_set>
 #include <string>
+#include <ctime>
+#include "thread"
+
 #include "transforms.h"
+#include "mystitch.h"
+
 
 using namespace cv;
 using namespace std;
@@ -43,6 +48,11 @@ using namespace Eigen;
 
 #define pi 3.1415926
 
+
+clock_t start_time;
+clock_t end_time;
+
+using PointGroup = vector<vector<Point2f>>;
 
 /*生产1到n的行向量*/
 MatrixXd OnetoN(int n);
@@ -65,7 +75,84 @@ void meshgrid(Eigen::MatrixXd &vecX, Eigen::MatrixXd &vecY, Eigen::MatrixXd &mes
 /*function count std declaration*/
 double countStd(MatrixXd& src);
 
+
+
+//多线程计算和描述特征点
+void detectPoiot_thread_func(Mat& pic, SurfFeatureDetector& Detector, vector<KeyPoint>* keyPoint1)
+{
+	Detector.detect(pic, *keyPoint1);
+}
+void computePoint_thread_func(Mat& pic, SurfDescriptorExtractor& Descriptor, vector<KeyPoint>& keyPoint1, Mat* imageDesc1)
+{
+	Descriptor.compute(pic, keyPoint1, *imageDesc1);
+}
+void match_ransac_thread_func(FlannBasedMatcher& matcher, int k, vector<Mat>& imageDesc, vector<vector<KeyPoint>>& keyPoint, PointGroup* X)
+{
+	vector<DMatch> matchePoints;
+	matcher.match(imageDesc[k], imageDesc[k + 1], matchePoints, Mat());
+	cout << "total match points of image: " << k << "&" << k + 1 << ": " << matchePoints.size() << endl;
+	//删除错误匹配的特征点
+	vector<cv::DMatch> InlierMatches;//定义内点集合
+	vector<cv::Point2f> p1, p2;//先把keypoint转换为Point格式
+
+	for (int i = 0; i < matchePoints.size(); i++)
+	{
+		p1.push_back(keyPoint[k][matchePoints[i].queryIdx].pt);// pt是position
+		p2.push_back(keyPoint[k + 1][matchePoints[i].trainIdx].pt);
+	}
+	//RANSAC FindFundamental剔除错误点
+	vector<uchar> RANSACStatus;//用以标记每一个匹配点的状态，等于0则为外点，等于1则为内点。
+	cv::findFundamentalMat(p1, p2, RANSACStatus, CV_FM_RANSAC);//p1 p2必须为float型
+	for (int i = 0; i < matchePoints.size(); i++)
+	{
+		if (RANSACStatus[i] != 0)
+		{
+			InlierMatches.push_back(matchePoints[i]); //不等于0的是内点
+		}
+	}
+	//画出特征点的图
+	//drawMatches(image[k + 1], keyPoint[k + 1], image[k], keyPoint[k], InlierMatches, img_match);
+
+	PointGroup PointsGroup(2);//中间变量，图1和图2的点match的点放在一个PointGroup中，
+
+	for (int i = 0; i < InlierMatches.size(); i++)
+	{
+		PointsGroup[0].push_back(keyPoint[k][InlierMatches[i].queryIdx].pt);
+		PointsGroup[1].push_back(keyPoint[k + 1][InlierMatches[i].trainIdx].pt);
+	}
+	*X = PointsGroup;//最后的结果
+}
+
+
+//测试多幅缝合
+void test_seaming()
+{
+	//注意：从最右图开始存，每张图的大小一致
+	//matlab在677行输出im_our{i}
+	Mat image1 = imread("../core1/4_im_our.jpg");    //最右图
+	Mat image2 = imread("../core1/3_im_our.jpg");    //左图
+	Mat image3 = imread("../core1/2_im_our.jpg");    //
+	Mat image4 = imread("../core1/1_im_our.jpg");    //最左图
+
+	//注意：从大往小存，735和1843即4_im_our在图中的坐标
+	//matlab在301行输出 fprintf('num--%d--m_u0_(%d)\n',i,m_u0_(i));
+	vector<int> m_u0{ 735, 488, 213, 1 };
+	vector<int> m_u1{ 1843, 1619, 1339, 1089 };
+
+	vector<Mat> images{ image1, image2, image3, image4 };
+
+	Mat dst = seaming(images, m_u0, m_u1);
+	imwrite("../core1/seaming.jpg", dst);
+}
+
+
 int main(int argc, char *argv[]){
+
+
+	test_seaming();
+
+	return 0;
+
 
 
 	//读图，这个方式需要根据情况更改
@@ -111,87 +198,50 @@ int main(int argc, char *argv[]){
 	vector<vector<KeyPoint>>keyPoint;//关键点
 	vector<Mat> imageDesc;//关键点的描述
 	int ei = image.size() - 1;//matlab 中ei 四张图，就有3个组合（1和2、2和3、3和4），ei=3。
+	vector<thread> m_thread(image.size());//创建线程
 
 
-	//提取特征点   
-	SiftFeatureDetector Detector(thr_hesi);//海森矩阵阈值
+	//Detector
+	start_time = clock();
+	SurfFeatureDetector Detector(thr_hesi);//海森矩阵阈值
 	cout << "Detector(" << thr_hesi << ") ing……" << endl;
-
-	//对每幅图像 检测特征点
 	keyPoint.resize(image.size());
 	for (int i = 0; i < image.size(); i++)
-	{
-		Detector.detect(image.at(i), keyPoint[i]);
-		//这里可以优化为多线程进行
-	}
+		m_thread[i] = thread(detectPoiot_thread_func, image.at(i), Detector, &(keyPoint[i]));//传地址
+	for (int i = 0; i < image.size(); i++)
+		m_thread[i].join();
+	end_time = clock();
+	cout << "The Detector time is: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
 	cout << "----------" << endl;
 
 
-	//特征点描述，为下边的特征点匹配做准备
-	SiftFeatureDetector Descriptor;
-	cout << "Descriptor ing……" << endl;
 
-	//对每幅图像 描述特征点
+	//Descriptor
+	start_time = clock();
+	SurfFeatureDetector Descriptor;
+	cout << "Descriptor ing……" << endl;
 	imageDesc.resize(image.size());
 	for (int i = 0; i < image.size(); i++)
-	{
-		Descriptor.compute(image[i], keyPoint[i], imageDesc[i]);
-		//这里可以优化为多线程进行
-	}
+		m_thread[i] = thread(computePoint_thread_func, image[i], Descriptor, keyPoint[i], &(imageDesc[i]));
+	for (int i = 0; i < image.size(); i++)
+		m_thread[i].join();
+	end_time = clock();
+	cout << "The Descriptor time is: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
 	cout << "----------" << endl;
 
 
-	////RANSAC👇
-	//剔除不匹配的点
+	//match and ransac
+	start_time = clock();
 	FlannBasedMatcher matcher;
 	cout << "good point of ransac" << endl;
-
-	//准备变量
-	vector<Point2f> imagePoints1, imagePoints2;//X_1,X_2
-	using PointGroup = vector<vector<Point2f>>;
-	PointGroup PointsGroup(2);//中间变量，图1和图2的点match的点放在一个PointGroup中，
 	vector<PointGroup> X(image.size() - 1);//有三个PointGroup，放在X里面，这里表示的是 X{ei,i}
-	//输出的图
-	Mat img_match;
-
 	for (int k = 0; k < ei; k++)
-	{
-		vector<DMatch> matchePoints;
-		matcher.match(imageDesc[k], imageDesc[k + 1], matchePoints, Mat());
-		cout << "total match points of image: " << k << "&" << k + 1 << ": " << matchePoints.size() << endl;
-		//删除错误匹配的特征点
-		vector<cv::DMatch> InlierMatches;//定义内点集合
-		vector<cv::Point2f> p1, p2;//先把keypoint转换为Point格式
-
-		for (int i = 0; i < matchePoints.size(); i++)
-		{
-			p1.push_back(keyPoint[k][matchePoints[i].queryIdx].pt);// pt是position
-			p2.push_back(keyPoint[k + 1][matchePoints[i].trainIdx].pt);
-		}
-		//RANSAC FindFundamental剔除错误点
-		vector<uchar> RANSACStatus;//用以标记每一个匹配点的状态，等于0则为外点，等于1则为内点。
-		cv::findFundamentalMat(p1, p2, RANSACStatus, CV_FM_RANSAC);//p1 p2必须为float型
-		for (int i = 0; i < matchePoints.size(); i++)
-		{
-			if (RANSACStatus[i] != 0)
-			{
-				InlierMatches.push_back(matchePoints[i]); //不等于0的是内点
-			}
-		}
-		//画出特征点的图
-		drawMatches(image[k + 1], keyPoint[k + 1], image[k], keyPoint[k], InlierMatches, img_match);
-
-		for (int i = 0; i < InlierMatches.size(); i++)
-		{
-			PointsGroup[0].push_back(keyPoint[k][InlierMatches[i].queryIdx].pt);
-			PointsGroup[1].push_back(keyPoint[k + 1][InlierMatches[i].trainIdx].pt);
-		}
-		X[k] = PointsGroup;//最后的结果
-		PointsGroup[0].clear();
-		PointsGroup[1].clear();
-	}
-	////RANSAC👆
-	cout << "----------RANSAC success------------------" << endl;
+		m_thread[k] = thread(match_ransac_thread_func, matcher, k, imageDesc, keyPoint, &X[k]);
+	for (int k = 0; k < ei; k++)
+		m_thread[k].join();
+	end_time = clock();
+	cout << "The RANSAC time is: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
+	cout << "----------------------------" << endl;
 
 
 
@@ -769,6 +819,9 @@ int main(int argc, char *argv[]){
 
 	return 0;
 }
+
+
+
 
 void  meshgrid(Eigen::MatrixXd &vecX, Eigen::MatrixXd &vecY, Eigen::MatrixXd &meshX, Eigen::MatrixXd &meshY)
 {

@@ -120,9 +120,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mystitch.cpp" />
     <ClCompile Include="transforms.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="mystitch.h" />
     <ClInclude Include="transforms.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

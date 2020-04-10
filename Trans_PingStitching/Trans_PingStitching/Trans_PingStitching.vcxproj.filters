@@ -21,9 +21,15 @@
     <ClCompile Include="transforms.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="mystitch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="transforms.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mystitch.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
