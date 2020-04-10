@@ -6,7 +6,7 @@
 #pragma comment(lib, ".\\lib\\mclmcr.lib")
 ///////////////////静态加载Matlab附加依赖
 
-#include "RewGlobal.h"
+#include "RewImage.h"
 #include "mclcppclass.h"
 #include "mclmcrrt.h"
 ///////////////////Matlab
@@ -78,11 +78,11 @@ double countStd(MatrixXd& src);
 
 
 //多线程计算和描述特征点
-void detectPoiot_thread_func(Mat& pic, SurfFeatureDetector& Detector, vector<KeyPoint>* keyPoint1)
+void detectPoiot_thread_func(Mat& pic, SiftFeatureDetector& Detector, vector<KeyPoint>* keyPoint1)
 {
 	Detector.detect(pic, *keyPoint1);
 }
-void computePoint_thread_func(Mat& pic, SurfDescriptorExtractor& Descriptor, vector<KeyPoint>& keyPoint1, Mat* imageDesc1)
+void computePoint_thread_func(Mat& pic, SiftDescriptorExtractor& Descriptor, vector<KeyPoint>& keyPoint1, Mat* imageDesc1)
 {
 	Descriptor.compute(pic, keyPoint1, *imageDesc1);
 }
@@ -129,30 +129,29 @@ void test_seaming()
 {
 	//注意：从最右图开始存，每张图的大小一致
 	//matlab在677行输出im_our{i}
-	Mat image1 = imread("../core1/4_im_our.jpg");    //最右图
-	Mat image2 = imread("../core1/3_im_our.jpg");    //左图
-	Mat image3 = imread("../core1/2_im_our.jpg");    //
-	Mat image4 = imread("../core1/1_im_our.jpg");    //最左图
+	Mat image1 = imread("../core/4_im_our.jpg");    //最右图
+	Mat image2 = imread("../core/3_im_our.jpg");    //左图
+	Mat image3 = imread("../core/2_im_our.jpg");    //
+	Mat image4 = imread("../core/1_im_our.jpg");    //最左图
 
 	//注意：从大往小存，735和1843即4_im_our在图中的坐标
 	//matlab在301行输出 fprintf('num--%d--m_u0_(%d)\n',i,m_u0_(i));
-	vector<int> m_u0{ 735, 488, 213, 1 };
-	vector<int> m_u1{ 1843, 1619, 1339, 1089 };
+	vector<int> m_u0{ 6323, 4102, 1756, 1 };
+	vector<int> m_u1{ 15591, 13692, 11287, 9065 };
 
 	vector<Mat> images{ image1, image2, image3, image4 };
 
 	Mat dst = seaming(images, m_u0, m_u1);
-	imwrite("../core1/seaming.jpg", dst);
+	imwrite("../core/seaming.jpg", dst);
 }
 
 
 int main(int argc, char *argv[]){
 
 
-	test_seaming();
+	//test_seaming();
 
-	return 0;
-
+	//return 0;
 
 
 	//读图，这个方式需要根据情况更改
@@ -160,7 +159,6 @@ int main(int argc, char *argv[]){
 	Mat image02 = imread("../core/2.jpg");    //左图
 	Mat image03 = imread("../core/3.jpg");    //右图
 	Mat image04 = imread("../core/4.jpg");    //左图
-
 	vector<Mat> image;
 
 	image.push_back(image01);
@@ -194,7 +192,7 @@ int main(int argc, char *argv[]){
 	}
 
 	////////////////////////////////////////////////////////////////////////feature detection and Ransac rm/////////////////////////////////////////
-	int thr_hesi = 500;//海森矩阵阈值
+	int thr_hesi = 100;//海森矩阵阈值
 	vector<vector<KeyPoint>>keyPoint;//关键点
 	vector<Mat> imageDesc;//关键点的描述
 	int ei = image.size() - 1;//matlab 中ei 四张图，就有3个组合（1和2、2和3、3和4），ei=3。
@@ -203,7 +201,7 @@ int main(int argc, char *argv[]){
 
 	//Detector
 	start_time = clock();
-	SurfFeatureDetector Detector(thr_hesi);//海森矩阵阈值
+	SiftFeatureDetector Detector;//海森矩阵阈值
 	cout << "Detector(" << thr_hesi << ") ing……" << endl;
 	keyPoint.resize(image.size());
 	for (int i = 0; i < image.size(); i++)
@@ -218,7 +216,7 @@ int main(int argc, char *argv[]){
 
 	//Descriptor
 	start_time = clock();
-	SurfFeatureDetector Descriptor;
+	SiftFeatureDetector Descriptor;
 	cout << "Descriptor ing……" << endl;
 	imageDesc.resize(image.size());
 	for (int i = 0; i < image.size(); i++)
@@ -245,575 +243,625 @@ int main(int argc, char *argv[]){
 
 
 
-	///////////////////////////////////////////////////////////////////////////////Global  Transform Estimation//////////////////////////////////
-	if (!RewGlobalInitialize())
-		return 1;
 
-	//Transform mg to mwArray format
+	////matlab
+	start_time = clock();
+	if (!RewImageInitialize())
+		return -1;
 	int Xrows = im_n - 1, Xcols = 2;
 
 	mwArray XData(Xrows, Xcols, mxCELL_CLASS);
-	mwArray imData(im_n, 3, mxDOUBLE_CLASS);
-	mwArray edgeData(im_n - 1, 2, mxDOUBLE_CLASS);
-	vector<vector<MatrixXd>> X_(Xrows, vector<MatrixXd>(Xcols));
-	for (int i = 1; i <= im_n; i++){
 
-		for (int j = 1; j <= 3; j++){
-
-			imData(i, j) = imsize[i - 1][j - 1];
-
-		}
-	}
-	for (int i = 1; i <= im_n - 1; i++){
-
-		edgeData(i, 1) = i;
-		edgeData(i, 2) = i + 1;
-
-	}
+	mwArray finshed(1, 1, mxLOGICAL_CLASS);
 	for (int i = 1; i <= Xrows; i++){
 
 		for (int j = 1; j <= Xcols; j++){
 
 			int size_point = X[i - 1][j - 1].size();
 			mwArray tmp(3, size_point, mxDOUBLE_CLASS);
-			MatrixXd tmpM(3, size_point);
 			for (int s = 1; s <= size_point; s++){
 				tmp(1, s) = X[i - 1][j - 1][s - 1].x;
 				tmp(2, s) = X[i - 1][j - 1][s - 1].y;
 				tmp(3, s) = 1.0;
-
-				tmpM(0, s - 1) = X[i - 1][j - 1][s - 1].x;
-				tmpM(1, s - 1) = X[i - 1][j - 1][s - 1].y;
-				tmpM(2, s - 1) = 1.0;
 			}
 			XData(i, j) = tmp;
-			X_[i - 1][j - 1] = tmpM;
 		}
 	}
+	mwArray im_n_(1, 1, mxDOUBLE_CLASS);
+	mwArray m_u0_, m_u1_;
+	im_n_(1, 1) = (double)im_n;
+	REW(2, m_u0_, m_u1_, XData, im_n_);
+	RewImageTerminate;
+	Mat image1 = imread("../core/4_im_our.jpg");    //最右图
+	Mat image2 = imread("../core/3_im_our.jpg");    //左图
+	Mat image3 = imread("../core/2_im_our.jpg");    //
+	Mat image4 = imread("../core/1_im_our.jpg");    //最左图
 
-	cout << "-----------------mwArray Transformation success-------------------" << endl;
-
-	mwArray mParas, mR_ref;//globalTransEsti的两个输出矩阵  mwArray格式的 paras和R_ref
-
-	globalTransEsti(2, mParas, mR_ref, XData, imData, edgeData);
-
-	int nParas = 4 * im_n - 3;
-
-	MatrixXd paras(1, nParas);                            //paras
-
-	for (int i = 0; i < nParas; i++){
-		paras(0, i) = mParas(1, i + 1);
-	}
-
-
-	MatrixXd R_ref(3, 3);                                //R_ref
-
-	for (int i = 0; i < 3; i++){
-		for (int j = 0; j < 3; j++){
-			R_ref(i, j) = mR_ref(i + 1, j + 1);
-		}
-	}
-
-	cout << R_ref << endl;
-	std::vector<MatrixXd> M;                          //M
-
-	std::vector<MatrixXd> D(im_n, MatrixXd::Zero(1, 1));							  //D
-
-	std::vector<vector<MatrixXd>> R_pair(im_n, std::vector<MatrixXd>(im_n));  //R_pair
-
+	//注意：从大往小存，735和1843即4_im_our在图中的坐标
+	//matlab在301行输出 fprintf('num--%d--m_u0_(%d)\n',i,m_u0_(i));
+	vector<int> m_u0(im_n, 0);
+	vector<int> m_u1(im_n, 0);
 	for (int i = 0; i < im_n; i++){
-
-		int ki = paras(0, i);
-		MatrixXd tmp(3, 3);
-		tmp << ki, 0, imsize[i][1] / 2,
-			0, ki, imsize[i][0] / 2,
-			0, 0, 1;
-		M.push_back(tmp);
-		R_pair[i][i] = MatrixXd::Identity(3, 3);
-
+		m_u0[i] = (int)m_u0_(im_n-i, 1);
+		m_u1[i] = (int)m_u1_(im_n-i, 1);
 	}
 
-	for (int i = 2; i <= im_n; i++){
+	vector<Mat> images{ image1, image2, image3, image4 };
 
-		MatrixXd theta = paras.block<1, 3>(0, im_n + 3 * (i - 2));
-		MatrixXd theta_m(3, 3);
+	Mat dst = seaming(images, m_u0, m_u1);
+	imwrite("../core/seaming.jpg", dst);
+	end_time = clock();
+	cout << "The Last time is: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
+	system("pause");
+	/////////////////////////////////////////////////////////////////////////////////Global  Transform Estimation//////////////////////////////////
+	//if (!RewGlobalInitialize())
+	//	return 1;
 
-		theta_m << 0, -theta(0, 2), theta(0, 1),
-			theta(0, 2), 0, -theta(0, 0),
-			-theta(0, 1), theta(0, 0), 0;
-
-		R_pair[0][i - 1] = theta_m.exp();
-		R_pair[i - 1][0] = R_pair[0][i - 1].transpose();
-
-	}
-
-	for (int i = 2; i <= im_n - 1; i++){
-		for (int j = i + 1; j <= im_n; j++){
-
-			R_pair[i - 1][j - 1] = R_pair[0][j - 1] * R_pair[i - 1][0];
-			R_pair[j - 1][i - 1] = R_pair[i - 1][j - 1].transpose();
-		}
-	}
+	////Transform mg to mwArray format
+	//int Xrows = im_n - 1, Xcols = 2;
 
-	const int refi = 1;
-	std::vector<MatrixXd> R(im_n);
-	for (int i = 0; i < im_n; i++){
+	//mwArray XData(Xrows, Xcols, mxCELL_CLASS);
+	//mwArray imData(im_n, 3, mxDOUBLE_CLASS);
+	//mwArray edgeData(im_n - 1, 2, mxDOUBLE_CLASS);
+	//vector<vector<MatrixXd>> X_(Xrows, vector<MatrixXd>(Xcols));
+	//for (int i = 1; i <= im_n; i++){
 
-		R[i] = R_pair[refi - 1][i] * R_ref.transpose();
-	}
+	//	for (int j = 1; j <= 3; j++){
 
+	//		imData(i, j) = imsize[i - 1][j - 1];
 
-	RewGlobalTerminate;
-	cout << R_pair[1][2] << endl;
-	cout << "-------------global transformation estimation success ------------" << endl;
-	////////////////////////////////////////
+	//	}
+	//}
+	//for (int i = 1; i <= im_n - 1; i++){
 
+	//	edgeData(i, 1) = i;
+	//	edgeData(i, 2) = i + 1;
 
+	//}
+	//for (int i = 1; i <= Xrows; i++){
 
-	////////////////comput_mosaic_parameters////////////////////
+	//	for (int j = 1; j <= Xcols; j++){
 
-	double fe = max(M[refi - 1](0, 0), M[refi - 1](1, 1));//下标从0开始的，都要减一
+	//		int size_point = X[i - 1][j - 1].size();
+	//		mwArray tmp(3, size_point, mxDOUBLE_CLASS);
+	//		MatrixXd tmpM(3, size_point);
+	//		for (int s = 1; s <= size_point; s++){
+	//			tmp(1, s) = X[i - 1][j - 1][s - 1].x;
+	//			tmp(2, s) = X[i - 1][j - 1][s - 1].y;
+	//			tmp(3, s) = 1.0;
 
-	vector<MatrixXd> ubox(im_n);
-	vector<MatrixXd> vbox(im_n);
-	vector<MatrixXd> ubox_(im_n);
-	vector<MatrixXd> vbox_(im_n);
-	MatrixXd ubox_all_;
-	MatrixXd vbox_all_;
-	MatrixXd part1, part2, part3, part4;//ubox\vbox都是由四部分组成
+	//			tmpM(0, s - 1) = X[i - 1][j - 1][s - 1].x;
+	//			tmpM(1, s - 1) = X[i - 1][j - 1][s - 1].y;
+	//			tmpM(2, s - 1) = 1.0;
+	//		}
+	//		XData(i, j) = tmp;
+	//		X_[i - 1][j - 1] = tmpM;
+	//	}
+	//}
 
-	vector<MatrixXd> ubox_vec;
-	vector<MatrixXd> vbox_vec;//for matlab cat
+	//cout << "-----------------mwArray Transformation success-------------------" << endl;
 
-	for (int i = 0; i < im_n; i++)
-	{
-		//ubox{i} = [1:imsize(i,2)  1:imsize(i,2)  ones(1,imsize(i,1))  imsize(i,2)*ones(1,imsize(i,1))] ;
-		part1 = OnetoN(imsize[i][1]);//1：第i幅图片的列数
-		part2 = part1;
-		part3.setOnes(1, imsize[i][0]);//i幅图片行数个1
-		part4.setConstant(1, imsize[i][0], imsize[i][1]);
-		ubox[i].resize(1, 2 * (imsize[i][1] + imsize[i][0]));
-		ubox[i] << part1, part2, part3, part4;
+	//mwArray mParas, mR_ref;//globalTransEsti的两个输出矩阵  mwArray格式的 paras和R_ref
 
-		//vbox{i} = [ones(1,imsize(i,2))  imsize(i,1)*ones(1,imsize(i,2))  1:imsize(i,1)        1:imsize(i,1) ];
-		part1.setOnes(1, imsize[i][1]);//i幅图片的列数个1
-		part2.setConstant(1, imsize[i][1], imsize[i][0]);
-		part3 = OnetoN(imsize[i][0]);//1：第i幅图片的行数
-		part4 = part3;
-		vbox[i].resize(1, 2 * (imsize[i][1] + imsize[i][0]));
-		vbox[i] << part1, part2, part3, part4;
+	//globalTransEsti(2, mParas, mR_ref, XData, imData, edgeData);
 
-		//[ubox_{i}, vbox_{i}] =  trans_persp2equi(ubox{i}, vbox{i}, R{i}', M{i}, D{i}, fe);
-		MatrixXd temp = R[i].transpose();//转置要用中间变量，不支持自复制
-		trans_persp2equi(ubox_[i], vbox_[i], ubox[i], vbox[i], temp, M[i], D[i], fe);
+	//int nParas = 4 * im_n - 3;
 
+	//MatrixXd paras(1, nParas);                            //paras
 
-		ubox_vec.push_back(ubox_[i]);
-		vbox_vec.push_back(vbox_[i]);//for matlab cat
-	}
+	//for (int i = 0; i < nParas; i++){
+	//	paras(0, i) = mParas(1, i + 1);
+	//}
 
-	ubox_all_ = cat(ubox_vec);
-	vbox_all_ = cat(vbox_vec);/*ubox_all_ << ubox_[0], ubox_[1], ubox_[2], ubox_[3];  vbox_all_ << vbox_[0], vbox_[1], vbox_[2], vbox_[3];*/
 
+	//MatrixXd R_ref(3, 3);                                //R_ref
 
-	double u0 = ubox_all_.minCoeff();
-	double u1 = ubox_all_.maxCoeff();
-	MatrixXd ur = MtoN(u0, u1);
-	double v0 = vbox_all_.minCoeff();
-	double v1 = vbox_all_.maxCoeff();
-	MatrixXd vr = MtoN(v0, v1);
-	double mosaicw = ur.cols();
-	double mosaich = vr.cols();
+	//for (int i = 0; i < 3; i++){
+	//	for (int j = 0; j < 3; j++){
+	//		R_ref(i, j) = mR_ref(i + 1, j + 1);
+	//	}
+	//}
 
-	MatrixXd m_u0_, m_u1_, m_v0_, m_v1_, imw_, imh_;
-	m_u0_.setOnes(im_n, 1);
-	m_u1_.setOnes(im_n, 1);
-	m_v0_.setOnes(im_n, 1);
-	m_v1_.setOnes(im_n, 1);
-	imw_.setOnes(im_n, 1);
-	imh_.setOnes(im_n, 1);
+	//cout << R_ref << endl;
+	//std::vector<MatrixXd> M;                          //M
 
-	for (int i = 0; i < im_n; i++)
-	{
-		double margin = 0.2 * min(imsize[0][0], imsize[0][1]);
-		double u0_im_ = max(ubox_[i].minCoeff() - margin, u0);
-		double u1_im_ = min(ubox_[i].maxCoeff() + margin, u1);
-		double v0_im_ = max(vbox_[i].minCoeff() - margin, v0);
-		double v1_im_ = min(vbox_[i].maxCoeff() + margin, v1);
-		m_u0_(i, 0) = int(u0_im_ - u0 + 1) + 1;
-		m_u1_(i, 0) = int(u1_im_ - u0 + 1);
-		m_v0_(i, 0) = int(v0_im_ - v0 + 1) + 1;
-		m_v1_(i, 0) = int(v1_im_ - v0 + 1);
-		imw_(i, 0) = int(m_u1_(i) - m_u0_(i) + 1); //最后每张图的长宽
-		imh_(i, 0) = int(m_v1_(i) - m_v0_(i) + 1);
-	}
-	cout << "-------------------comput_mosaic_parameters-------------------------------" << endl;
+	//std::vector<MatrixXd> D(im_n, MatrixXd::Zero(1, 1));							  //D
 
-	///////////////////////////////////////
-
+	//std::vector<vector<MatrixXd>> R_pair(im_n, std::vector<MatrixXd>(im_n));  //R_pair
 
+	//for (int i = 0; i < im_n; i++){
 
+	//	int ki = paras(0, i);
+	//	MatrixXd tmp(3, 3);
+	//	tmp << ki, 0, imsize[i][1] / 2,
+	//		0, ki, imsize[i][0] / 2,
+	//		0, 0, 1;
+	//	M.push_back(tmp);
+	//	R_pair[i][i] = MatrixXd::Identity(3, 3);
 
-	////////////////////local mosaic///////////////////////////
-
-	vector<vector<int>> Adj(im_n, vector<int>(im_n, 0));
+	//}
 
+	//for (int i = 2; i <= im_n; i++){
 
-	for (int ei = 1; ei <= edge_n; ei++){
-		int i = edge_list[ei - 1][0];
-		int j = edge_list[ei - 1][1];
-		Adj[i - 1][j - 1] = ei;
-		Adj[j - 1][i - 1] = ei;
-	}
+	//	MatrixXd theta = paras.block<1, 3>(0, im_n + 3 * (i - 2));
+	//	MatrixXd theta_m(3, 3);
 
-	int XLength = ur.cols(), YLength = vr.cols();
+	//	theta_m << 0, -theta(0, 2), theta(0, 1),
+	//		theta(0, 2), 0, -theta(0, 0),
+	//		-theta(0, 1), theta(0, 0), 0;
+
+	//	R_pair[0][i - 1] = theta_m.exp();
+	//	R_pair[i - 1][0] = R_pair[0][i - 1].transpose();
+
+	//}
+
+	//for (int i = 2; i <= im_n - 1; i++){
+	//	for (int j = i + 1; j <= im_n; j++){
+
+	//		R_pair[i - 1][j - 1] = R_pair[0][j - 1] * R_pair[i - 1][0];
+	//		R_pair[j - 1][i - 1] = R_pair[i - 1][j - 1].transpose();
+	//	}
+	//}
 
-	MatrixXd u(YLength, XLength), v(YLength, XLength);
+	//const int refi = 1;
+	//std::vector<MatrixXd> R(im_n);
+	//for (int i = 0; i < im_n; i++){
 
-	meshgrid(ur, vr, u, v);
+	//	R[i] = R_pair[refi - 1][i] * R_ref.transpose();
+	//}
 
-	for (int ki = 1; ki <= im_n; ki++){
 
-		int i = floor((ki + refi - 2) % im_n) + 1;
-		MatrixXd u_im = u.block(m_v0_(ki - 1, 0) - 1, m_u0_(ki - 1, 0) - 1, m_v1_(ki - 1, 0) - m_v0_(ki - 1, 0) + 1, m_u1_(ki - 1, 0) - m_u0_(ki - 1, 0) + 1);
-		MatrixXd v_im = v.block(m_v0_(ki - 1, 0) - 1, m_u0_(ki - 1, 0) - 1, m_v1_(ki - 1, 0) - m_v0_(ki - 1, 0) + 1, m_u1_(ki - 1, 0) - m_u0_(ki - 1, 0) + 1);
-		MatrixXd u_im_, v_im_;
-		trans_equi2persp(u_im_, v_im_, u_im, v_im, R[i - 1], M[i - 1], D[i - 1], fe);///时间有点长
+	//RewGlobalTerminate;
+	//cout << R_pair[1][2] << endl;
+	//cout << "-------------global transformation estimation success ------------" << endl;
+	//////////////////////////////////////////
 
-		bool need_deform = false;
-		vector<double> sub_u0, sub_u1, sub_v0, sub_v1;
-		MatrixXd Pi, Pi_;
 
 
-		for (int kj = 1; kj <= ki - 1; kj++){
+	//////////////////comput_mosaic_parameters////////////////////
 
-			int j = floor((kj + refi - 2) % im_n) + 1;
-			if (Adj[i - 1][j - 1] > 0){
+	//double fe = max(M[refi - 1](0, 0), M[refi - 1](1, 1));//下标从0开始的，都要减一
 
-				need_deform = true;
-				MatrixXd ubox_ji, vbox_ji;
-				trans_persp2persp(ubox_ji, vbox_ji, ubox[j - 1], vbox[j - 1], R_pair[j - 1][i - 1], M[j - 1], D[j - 1], M[i - 1], D[i - 1]);
-				sub_u0.push_back(max(1.0, ubox_ji.minCoeff()));
-				sub_u1.push_back(min(imsize[i - 1][1], ubox_ji.maxCoeff()));
-				sub_v0.push_back(max(1.0, vbox_ji.minCoeff()));
-				sub_v1.push_back(min(imsize[i - 1][0], vbox_ji.maxCoeff()));
+	//vector<MatrixXd> ubox(im_n);
+	//vector<MatrixXd> vbox(im_n);
+	//vector<MatrixXd> ubox_(im_n);
+	//vector<MatrixXd> vbox_(im_n);
+	//MatrixXd ubox_all_;
+	//MatrixXd vbox_all_;
+	//MatrixXd part1, part2, part3, part4;//ubox\vbox都是由四部分组成
 
-				int ei = Adj[i - 1][j - 1];
-				MatrixXd Xi, Xj;
-				if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1]){
-					Xi = X_[ei - 1][0];
-					Xj = X_[ei - 1][1];
-				}
-				else
-				{
-					Xi = X_[ei - 1][1];
-					Xj = X_[ei - 1][0];
-				}
-				MatrixXd xj_i, yj_i;
-				MatrixXd Xirow = Xi.row(0);
-				MatrixXd Xjrow = Xi.row(1);
-				trans_persp2persp(xj_i, yj_i, Xirow, Xjrow, R_pair[j - 1][i - 1], M[j - 1], D[j - 1], M[i - 1], D[i - 1]);
+	//vector<MatrixXd> ubox_vec;
+	//vector<MatrixXd> vbox_vec;//for matlab cat
 
-				Pi = Xi.topRows(2);
-				cat3(Pi_, xj_i, yj_i);
+	//for (int i = 0; i < im_n; i++)
+	//{
+	//	//ubox{i} = [1:imsize(i,2)  1:imsize(i,2)  ones(1,imsize(i,1))  imsize(i,2)*ones(1,imsize(i,1))] ;
+	//	part1 = OnetoN(imsize[i][1]);//1：第i幅图片的列数
+	//	part2 = part1;
+	//	part3.setOnes(1, imsize[i][0]);//i幅图片行数个1
+	//	part4.setConstant(1, imsize[i][0], imsize[i][1]);
+	//	ubox[i].resize(1, 2 * (imsize[i][1] + imsize[i][0]));
+	//	ubox[i] << part1, part2, part3, part4;
 
+	//	//vbox{i} = [ones(1,imsize(i,2))  imsize(i,1)*ones(1,imsize(i,2))  1:imsize(i,1)        1:imsize(i,1) ];
+	//	part1.setOnes(1, imsize[i][1]);//i幅图片的列数个1
+	//	part2.setConstant(1, imsize[i][1], imsize[i][0]);
+	//	part3 = OnetoN(imsize[i][0]);//1：第i幅图片的行数
+	//	part4 = part3;
+	//	vbox[i].resize(1, 2 * (imsize[i][1] + imsize[i][0]));
+	//	vbox[i] << part1, part2, part3, part4;
 
-			}
-		}
+	//	//[ubox_{i}, vbox_{i}] =  trans_persp2equi(ubox{i}, vbox{i}, R{i}', M{i}, D{i}, fe);
+	//	MatrixXd temp = R[i].transpose();//转置要用中间变量，不支持自复制
+	//	trans_persp2equi(ubox_[i], vbox_[i], ubox[i], vbox[i], temp, M[i], D[i], fe);
 
-		if (need_deform){
 
-			double sub_u0_ = *(std::max_element(std::begin(sub_u0), std::end(sub_u0)));
-			double sub_u1_ = *(std::max_element(std::begin(sub_u1), std::end(sub_u1)));
-			double sub_v0_ = *(std::max_element(std::begin(sub_v0), std::end(sub_v0)));
-			double sub_v1_ = *(std::max_element(std::begin(sub_v1), std::end(sub_v1)));
+	//	ubox_vec.push_back(ubox_[i]);
+	//	vbox_vec.push_back(vbox_[i]);//for matlab cat
+	//}
+
+	//ubox_all_ = cat(ubox_vec);
+	//vbox_all_ = cat(vbox_vec);/*ubox_all_ << ubox_[0], ubox_[1], ubox_[2], ubox_[3];  vbox_all_ << vbox_[0], vbox_[1], vbox_[2], vbox_[3];*/
 
-			// merge the coincided points
-			string piKey = "", pi_Key = "";
-			unordered_set<string> ok_Pi, ok_Pi_;
-			vector<int> ok_cols;
-			for (int i = 0; i < Pi.cols(); i++){
+
+	//double u0 = ubox_all_.minCoeff();
+	//double u1 = ubox_all_.maxCoeff();
+	//MatrixXd ur = MtoN(u0, u1);
+	//double v0 = vbox_all_.minCoeff();
+	//double v1 = vbox_all_.maxCoeff();
+	//MatrixXd vr = MtoN(v0, v1);
+	//double mosaicw = ur.cols();
+	//double mosaich = vr.cols();
 
-				piKey = to_string(floor(Pi(0, i) + 0.5)) + "+" + to_string(floor(Pi(1, i) + 0.5));
-				pi_Key = to_string(floor(Pi_(0, i) + 0.5)) + "+" + to_string(floor(Pi_(1, i) + 0.5));
+	//MatrixXd m_u0_, m_u1_, m_v0_, m_v1_, imw_, imh_;
+	//m_u0_.setOnes(im_n, 1);
+	//m_u1_.setOnes(im_n, 1);
+	//m_v0_.setOnes(im_n, 1);
+	//m_v1_.setOnes(im_n, 1);
+	//imw_.setOnes(im_n, 1);
+	//imh_.setOnes(im_n, 1);
 
-				if (ok_Pi.find(piKey) == ok_Pi.end() && ok_Pi_.find(pi_Key) == ok_Pi_.end()){
-					ok_cols.push_back(i);
-					ok_Pi.insert(piKey);
-					ok_Pi_.insert(pi_Key);
-				}
+	//for (int i = 0; i < im_n; i++)
+	//{
+	//	double margin = 0.2 * min(imsize[0][0], imsize[0][1]);
+	//	double u0_im_ = max(ubox_[i].minCoeff() - margin, u0);
+	//	double u1_im_ = min(ubox_[i].maxCoeff() + margin, u1);
+	//	double v0_im_ = max(vbox_[i].minCoeff() - margin, v0);
+	//	double v1_im_ = min(vbox_[i].maxCoeff() + margin, v1);
+	//	m_u0_(i, 0) = int(u0_im_ - u0 + 1) + 1;
+	//	m_u1_(i, 0) = int(u1_im_ - u0 + 1);
+	//	m_v0_(i, 0) = int(v0_im_ - v0 + 1) + 1;
+	//	m_v1_(i, 0) = int(v1_im_ - v0 + 1);
+	//	imw_(i, 0) = int(m_u1_(i) - m_u0_(i) + 1); //最后每张图的长宽
+	//	imh_(i, 0) = int(m_v1_(i) - m_v0_(i) + 1);
+	//}
+	//cout << "-------------------comput_mosaic_parameters-------------------------------" << endl;
 
-			}
+	/////////////////////////////////////////
 
-			MatrixXd Pi_nd(2, ok_cols.size()), Pi_nd_(2, ok_cols.size());
-			for (int i = 0; i < ok_cols.size(); i++){
-				Pi_nd.col(i) = Pi.col(ok_cols[i]);
-				Pi_nd_.col(i) = Pi_.col(ok_cols[i]);
-			}
 
-			//form the linear system
-			MatrixXd xj_ = Pi_nd_.row(0), yj_ = Pi_nd_.row(1);
-			int n = xj_.cols();
-			MatrixXd gxn = xj_ - Pi_nd.row(0), hyn = yj_ - Pi_nd.row(1);
 
-			MatrixXd xx(n, n), yy(n, n);
 
-			for (int i = 0; i < n; i++){
+	//////////////////////local mosaic///////////////////////////
+
+	//vector<vector<int>> Adj(im_n, vector<int>(im_n, 0));
 
-				xx.row(i) = xj_.row(0);
-				yy.row(i) = yj_.row(0);
 
-			}
+	//for (int ei = 1; ei <= edge_n; ei++){
+	//	int i = edge_list[ei - 1][0];
+	//	int j = edge_list[ei - 1][1];
+	//	Adj[i - 1][j - 1] = ei;
+	//	Adj[j - 1][i - 1] = ei;
+	//}
 
-			MatrixXd dist2 = (xx - xx.transpose()).array().square() + (yy - yy.transpose()).array().square();
-			for (int i = 0; i < n; i++){
+	//int XLength = ur.cols(), YLength = vr.cols();
 
-				dist2(i, i) = 1;
-			}
-			MatrixXd T = dist2.array().log();// 为了中转而设置的变量
-			MatrixXd K = 0.5*(dist2.cwiseProduct(T));
+	//MatrixXd u(YLength, XLength), v(YLength, XLength);
 
-			for (int i = 0; i < n; i++){
-				K(i, i) = lambda * 8 * pi;
-			}
+	//meshgrid(ur, vr, u, v);
 
-			MatrixXd K_ = MatrixXd::Zero(n + 3, n + 3);
-			MatrixXd G_ = MatrixXd::Zero(n + 3, 2);
+	//for (int ki = 1; ki <= im_n; ki++){
 
-			K_.topLeftCorner(n, n) = K;
+	//	int i = floor((ki + refi - 2) % im_n) + 1;
+	//	MatrixXd u_im = u.block(m_v0_(ki - 1, 0) - 1, m_u0_(ki - 1, 0) - 1, m_v1_(ki - 1, 0) - m_v0_(ki - 1, 0) + 1, m_u1_(ki - 1, 0) - m_u0_(ki - 1, 0) + 1);
+	//	MatrixXd v_im = v.block(m_v0_(ki - 1, 0) - 1, m_u0_(ki - 1, 0) - 1, m_v1_(ki - 1, 0) - m_v0_(ki - 1, 0) + 1, m_u1_(ki - 1, 0) - m_u0_(ki - 1, 0) + 1);
+	//	MatrixXd u_im_, v_im_;
+	//	trans_equi2persp(u_im_, v_im_, u_im, v_im, R[i - 1], M[i - 1], D[i - 1], fe);///时间有点长
 
-			for (int i = 0; i < n; i++){
+	//	bool need_deform = false;
+	//	vector<double> sub_u0, sub_u1, sub_v0, sub_v1;
+	//	MatrixXd Pi, Pi_;
 
-				K_(n, i) = xj_(0, i);
-				K_(n + 1, i) = yj_(0, i);
-				K_(n + 2, i) = 1.0;
 
-				K_(i, n) = xj_(0, i);
-				K_(i, n + 1) = yj_(0, i);
-				K_(i, n + 2) = 1.0;
+	//	for (int kj = 1; kj <= ki - 1; kj++){
 
-				G_(i, 0) = gxn(0, i);
-				G_(i, 1) = hyn(0, i);
+	//		int j = floor((kj + refi - 2) % im_n) + 1;
+	//		if (Adj[i - 1][j - 1] > 0){
 
-			}
+	//			need_deform = true;
+	//			MatrixXd ubox_ji, vbox_ji;
+	//			trans_persp2persp(ubox_ji, vbox_ji, ubox[j - 1], vbox[j - 1], R_pair[j - 1][i - 1], M[j - 1], D[j - 1], M[i - 1], D[i - 1]);
+	//			sub_u0.push_back(max(1.0, ubox_ji.minCoeff()));
+	//			sub_u1.push_back(min(imsize[i - 1][1], ubox_ji.maxCoeff()));
+	//			sub_v0.push_back(max(1.0, vbox_ji.minCoeff()));
+	//			sub_v1.push_back(min(imsize[i - 1][0], vbox_ji.maxCoeff()));
 
-			//solve the linear system
-			MatrixXd W_ = K_.inverse()*G_;
-			MatrixXd wx = W_.topLeftCorner(n, 1), wy = W_.topRightCorner(n, 1);
-			MatrixXd a = W_.bottomLeftCorner(3, 1), b = W_.bottomRightCorner(3, 1);
+	//			int ei = Adj[i - 1][j - 1];
+	//			MatrixXd Xi, Xj;
+	//			if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1]){
+	//				Xi = X_[ei - 1][0];
+	//				Xj = X_[ei - 1][1];
+	//			}
+	//			else
+	//			{
+	//				Xi = X_[ei - 1][1];
+	//				Xj = X_[ei - 1][0];
+	//			}
+	//			MatrixXd xj_i, yj_i;
+	//			MatrixXd Xirow = Xi.row(0);
+	//			MatrixXd Xjrow = Xi.row(1);
+	//			trans_persp2persp(xj_i, yj_i, Xirow, Xjrow, R_pair[j - 1][i - 1], M[j - 1], D[j - 1], M[i - 1], D[i - 1]);
 
+	//			Pi = Xi.topRows(2);
+	//			cat3(Pi_, xj_i, yj_i);
 
-			//remove outliers based on the distribution of weights
 
-			vector<int> inlier;
-			for (int kiter = 1; kiter < 10; kiter++){
+	//		}
+	//	}
 
-				double wxStd = countStd(wx), wyStd = countStd(wy);
-				for (int i = 0; i < wx.rows(); i++){
+	//	if (need_deform){
 
-					if (abs(wx(i, 0)) < wxStd&&abs(wy(i, 0)) < wyStd)
-						inlier.push_back(i);
-				}
+	//		double sub_u0_ = *(std::max_element(std::begin(sub_u0), std::end(sub_u0)));
+	//		double sub_u1_ = *(std::max_element(std::begin(sub_u1), std::end(sub_u1)));
+	//		double sub_v0_ = *(std::max_element(std::begin(sub_v0), std::end(sub_v0)));
+	//		double sub_v1_ = *(std::max_element(std::begin(sub_v1), std::end(sub_v1)));
 
-				int kn = inlier.size();
+	//		// merge the coincided points
+	//		string piKey = "", pi_Key = "";
+	//		unordered_set<string> ok_Pi, ok_Pi_;
+	//		vector<int> ok_cols;
+	//		for (int i = 0; i < Pi.cols(); i++){
 
-				if (kn < 0.0027*(K_.cols() - 3))
-					break;
+	//			piKey = to_string(floor(Pi(0, i) + 0.5)) + "+" + to_string(floor(Pi(1, i) + 0.5));
+	//			pi_Key = to_string(floor(Pi_(0, i) + 0.5)) + "+" + to_string(floor(Pi_(1, i) + 0.5));
 
-				MatrixXd tmpK(kn + 3, K_.cols());
-				MatrixXd tmpG(kn + 3, 2);
+	//			if (ok_Pi.find(piKey) == ok_Pi.end() && ok_Pi_.find(pi_Key) == ok_Pi_.end()){
+	//				ok_cols.push_back(i);
+	//				ok_Pi.insert(piKey);
+	//				ok_Pi_.insert(pi_Key);
+	//			}
 
-				for (int i = 0; i < kn; i++){
-					tmpK.row(i) = K_.row(inlier[i]);
-					tmpG.row(i) = G_.row(inlier[i]);
-				}
-				for (int j = 0; j < 3; j++){
-					tmpG.row(kn + j) = G_.row(n + j);
-					tmpK.row(kn + j) = K_.row(n + j);
-				}
-				G_ = tmpG;
+	//		}
 
-				K_ = MatrixXd(kn + 3, kn + 3);
+	//		MatrixXd Pi_nd(2, ok_cols.size()), Pi_nd_(2, ok_cols.size());
+	//		for (int i = 0; i < ok_cols.size(); i++){
+	//			Pi_nd.col(i) = Pi.col(ok_cols[i]);
+	//			Pi_nd_.col(i) = Pi_.col(ok_cols[i]);
+	//		}
 
-				for (int s = 0; s < kn; s++){
+	//		//form the linear system
+	//		MatrixXd xj_ = Pi_nd_.row(0), yj_ = Pi_nd_.row(1);
+	//		int n = xj_.cols();
+	//		MatrixXd gxn = xj_ - Pi_nd.row(0), hyn = yj_ - Pi_nd.row(1);
 
-					K_.col(s) = tmpK.col(inlier[s]);
-				}
+	//		MatrixXd xx(n, n), yy(n, n);
 
-				for (int t = 0; t < 3; t++){
-					K_.col(kn + t) = tmpK.col(kn + t);
-				}
+	//		for (int i = 0; i < n; i++){
 
-				W_ = K_.inverse()*G_;
-				wx = W_.topLeftCorner(kn, 1), wy = W_.topRightCorner(kn, 1);
-				a = W_.bottomLeftCorner(3, 1), b = W_.bottomRightCorner(3, 1);
-				if (kiter < 9)
-					inlier.clear();
+	//			xx.row(i) = xj_.row(0);
+	//			yy.row(i) = yj_.row(0);
 
-			}
+	//		}
 
-			int outSize = inlier.size();
-			MatrixXd xj_tmp = xj_, yj_tmp = yj_, gxnTmp = gxn, hynTmp = hyn;
-			xj_ = MatrixXd(1, outSize);
-			yj_ = MatrixXd(1, outSize);
-			gxn = MatrixXd(1, outSize);
-			hyn = MatrixXd(1, outSize);
+	//		MatrixXd dist2 = (xx - xx.transpose()).array().square() + (yy - yy.transpose()).array().square();
+	//		for (int i = 0; i < n; i++){
 
-			for (int i = 0; i < outSize; i++){
-				xj_(0, i) = xj_tmp(0, inlier[i]);
-				yj_(0, i) = yj_tmp(0, inlier[i]);
-				gxn(0, i) = gxnTmp(0, inlier[i]);
-				hyn(0, i) = hynTmp(0, inlier[i]);
-			}
+	//			dist2(i, i) = 1;
+	//		}
+	//		MatrixXd T = dist2.array().log();// 为了中转而设置的变量
+	//		MatrixXd K = 0.5*(dist2.cwiseProduct(T));
 
-			sub_u0_ = sub_u0_ + gxn.minCoeff();
-			sub_u1_ = sub_u1_ + gxn.maxCoeff();
-			sub_v0_ = sub_v0_ + hyn.minCoeff();
-			sub_v1_ = sub_v1_ + hyn.maxCoeff();
+	//		for (int i = 0; i < n; i++){
+	//			K(i, i) = lambda * 8 * pi;
+	//		}
 
-			double eta_d0 = 0;
-			double eta_d1 = K_smooth * max((gxn.cwiseAbs()).maxCoeff(), (hyn.cwiseAbs()).maxCoeff());
+	//		MatrixXd K_ = MatrixXd::Zero(n + 3, n + 3);
+	//		MatrixXd G_ = MatrixXd::Zero(n + 3, 2);
 
+	//		K_.topLeftCorner(n, n) = K;
 
+	//		for (int i = 0; i < n; i++){
 
+	//			K_(n, i) = xj_(0, i);
+	//			K_(n + 1, i) = yj_(0, i);
+	//			K_(n + 2, i) = 1.0;
 
+	//			K_(i, n) = xj_(0, i);
+	//			K_(i, n + 1) = yj_(0, i);
+	//			K_(i, n + 2) = 1.0;
 
-			MatrixXd u_mesh_((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
-			MatrixXd v_mesh_((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
-			MatrixXd gx_mesh_ = MatrixXd::Zero((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
-			MatrixXd hy_mesh_ = MatrixXd::Zero((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
-			MatrixXd rbf, tmpLog;
-			for (int kf = 1; kf <= outSize; kf++){
-				dist2 = (u_mesh_.array() + xj_(0, kf - 1)).array().square() + (v_mesh_.array() + yj_(0, kf - 1)).array().square();
-				tmpLog = dist2.array().log();
-				rbf = 0.5*(dist2.cwiseProduct(tmpLog));
-				gx_mesh_ += wx(kf - 1, 0)*rbf;
-				hy_mesh_ += wy(kf - 1, 0)*rbf;
-			}
-			gx_mesh_ = (gx_mesh_ + a(0, 0)*u_mesh_ + a(1, 0)*v_mesh_).array() + a(2, 0);
-			hy_mesh_ = (hy_mesh_ + b(0, 0)*u_mesh_ + b(1, 0)*v_mesh_).array() + b(2, 0);
-			Mat m_gx, m_hy;
-			eigen2cv(gx_mesh_, m_gx);
-			eigen2cv(hy_mesh_, m_hy);
-			Mat m_gx_, m_hy_;
-			cv::resize(m_gx, m_gx_, cv::Size(imw_(i - 1, 0), imh_(i - 1, 0)), 0, 0, cv::INTER_CUBIC);
-			cv::resize(m_hy, m_hy_, cv::Size(imw_(i - 1, 0), imh_(i - 1, 0)), 0, 0, cv::INTER_CUBIC);
-			int gxCols = m_gx_.cols, gxRows = m_gx_.rows;
-			MatrixXd gx_im_(gxRows, gxCols), hy_im_(gxRows, gxCols);
-			cv2eigen(m_gx_, gx_im_);
-			cv2eigen(m_hy_, hy_im_);
+	//			G_(i, 0) = gxn(0, i);
+	//			G_(i, 1) = hyn(0, i);
 
+	//		}
 
-			//smooth tansition to global transform
-			MatrixXd u0_u_im_ = u_im_.array() - sub_u0_;
-			u0_u_im_ *= -1;
-			MatrixXd u1_u_im_ = u_im_.array() - sub_u1_;
+	//		//solve the linear system
+	//		MatrixXd W_ = K_.inverse()*G_;
+	//		MatrixXd wx = W_.topLeftCorner(n, 1), wy = W_.topRightCorner(n, 1);
+	//		MatrixXd a = W_.bottomLeftCorner(3, 1), b = W_.bottomRightCorner(3, 1);
 
-			MatrixXd dist_horizontal = u0_u_im_.cwiseMax(u1_u_im_);
 
-			MatrixXd v0_v_im_ = v_im_.array() - sub_v0_;
-			v0_v_im_ *= -1;
-			MatrixXd v1_v_im_ = v_im_.array() - sub_v1_;
-			MatrixXd dist_vertical = v0_v_im_.cwiseMax(v1_v_im_);
+	//		//remove outliers based on the distribution of weights
 
-			MatrixXd dist_sub = dist_horizontal.cwiseMax(dist_vertical);
-			MatrixXd comZero = MatrixXd::Zero(dist_sub.rows(), dist_sub.cols());
-			dist_sub = comZero.cwiseMax(dist_sub);
-			MatrixXd eta = -1 * (dist_sub.array() - eta_d1) / (eta_d1 - eta_d0);
-			MatrixXd comOne = MatrixXd::Ones(dist_sub.rows(), dist_sub.cols());
+	//		vector<int> inlier;
+	//		for (int kiter = 1; kiter < 10; kiter++){
 
-			eta = (dist_sub.array() < eta_d0).select(comOne, eta);
-			eta = (dist_sub.array() > eta_d1).select(comZero, eta);
+	//			double wxStd = countStd(wx), wyStd = countStd(wy);
+	//			for (int i = 0; i < wx.rows(); i++){
 
-			gx_im_ = gx_im_.cwiseProduct(eta);
-			hy_im_ = hy_im_.cwiseProduct(eta);
-			u_im_ = u_im_ - gx_im_;
-			v_im_ = v_im_ - hy_im_;
+	//				if (abs(wx(i, 0)) < wxStd&&abs(wy(i, 0)) < wyStd)
+	//					inlier.push_back(i);
+	//			}
 
+	//			int kn = inlier.size();
 
+	//			if (kn < 0.0027*(K_.cols() - 3))
+	//				break;
 
-			//update the feature locations
-			MatrixXd newXi, Xi;
-			for (int kj = ki + 1; kj <= im_n; kj++){
+	//			MatrixXd tmpK(kn + 3, K_.cols());
+	//			MatrixXd tmpG(kn + 3, 2);
 
-				int j = floor((kj + refi - 2) % im_n) + 1;
+	//			for (int i = 0; i < kn; i++){
+	//				tmpK.row(i) = K_.row(inlier[i]);
+	//				tmpG.row(i) = G_.row(inlier[i]);
+	//			}
+	//			for (int j = 0; j < 3; j++){
+	//				tmpG.row(kn + j) = G_.row(n + j);
+	//				tmpK.row(kn + j) = K_.row(n + j);
+	//			}
+	//			G_ = tmpG;
 
-				if (Adj[i - 1][j - 1] > 0){
+	//			K_ = MatrixXd(kn + 3, kn + 3);
 
-					int ei = Adj[i - 1][j - 1];
-					if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1]){
-						Xi = X_[ei - 1][0];
-					}
-					else
-						Xi = X_[ei - 1][1];
+	//			for (int s = 0; s < kn; s++){
 
-					newXi = Xi;
+	//				K_.col(s) = tmpK.col(inlier[s]);
+	//			}
 
-					MatrixXd u_f, v_f;
-					MatrixXd gx_f, hy_f;
-					MatrixXd u0_u_f, u1_u_f;
-					MatrixXd v0_v_f, v1_v_f;
-					MatrixXd dist_horizontal_f, dist_vertical_f;
-					MatrixXd dist_sub_f;
-					MatrixXd eta_f;
-					MatrixXd comZero_1, comOne_1;
-					for (int kiter = 1; kiter <= 20; kiter++){
-						u_f = newXi.row(0);
-						v_f = newXi.row(1);
-						gx_f = MatrixXd::Zero(1, newXi.cols());
-						hy_f = MatrixXd::Zero(1, newXi.cols());
+	//			for (int t = 0; t < 3; t++){
+	//				K_.col(kn + t) = tmpK.col(kn + t);
+	//			}
 
-						for (int kf = 1; kf <= outSize; kf++){
+	//			W_ = K_.inverse()*G_;
+	//			wx = W_.topLeftCorner(kn, 1), wy = W_.topRightCorner(kn, 1);
+	//			a = W_.bottomLeftCorner(3, 1), b = W_.bottomRightCorner(3, 1);
+	//			if (kiter < 9)
+	//				inlier.clear();
 
-							dist2 = (u_f.array() + xj_(0, kf - 1)).array().square() + (v_f.array() + yj_(0, kf - 1)).array().square();
-							tmpLog = dist2.array().log();
-							rbf = 0.5*(dist2.cwiseProduct(tmpLog));
-							gx_f = gx_f + wx(kf - 1, 0)*rbf;
-							hy_f = hy_f + wy(kf - 1, 0)*rbf;
+	//		}
 
-						}
-						gx_f = (gx_f + a(0, 0)*u_f + a(1, 0)*v_f).array() + a(2, 0);
-						hy_f = (hy_f + b(0, 0)*u_f + b(1, 0)*v_f).array() + b(2, 0);
+	//		int outSize = inlier.size();
+	//		MatrixXd xj_tmp = xj_, yj_tmp = yj_, gxnTmp = gxn, hynTmp = hyn;
+	//		xj_ = MatrixXd(1, outSize);
+	//		yj_ = MatrixXd(1, outSize);
+	//		gxn = MatrixXd(1, outSize);
+	//		hyn = MatrixXd(1, outSize);
 
-						u0_u_f = u_f.array() - sub_u0_;
-						u0_u_f *= -1;
-						u1_u_f = u_f.array() - sub_u1_;
+	//		for (int i = 0; i < outSize; i++){
+	//			xj_(0, i) = xj_tmp(0, inlier[i]);
+	//			yj_(0, i) = yj_tmp(0, inlier[i]);
+	//			gxn(0, i) = gxnTmp(0, inlier[i]);
+	//			hyn(0, i) = hynTmp(0, inlier[i]);
+	//		}
 
-						dist_horizontal_f = u0_u_f.cwiseMax(u1_u_f);
+	//		sub_u0_ = sub_u0_ + gxn.minCoeff();
+	//		sub_u1_ = sub_u1_ + gxn.maxCoeff();
+	//		sub_v0_ = sub_v0_ + hyn.minCoeff();
+	//		sub_v1_ = sub_v1_ + hyn.maxCoeff();
 
-						v0_v_f = v_f.array() - sub_v0_;
-						v0_v_f *= -1;
-						v1_v_f = v_f.array() - sub_v1_;
-						dist_vertical_f = v0_v_f.cwiseMax(v1_v_f);
+	//		double eta_d0 = 0;
+	//		double eta_d1 = K_smooth * max((gxn.cwiseAbs()).maxCoeff(), (hyn.cwiseAbs()).maxCoeff());
 
-						dist_sub_f = dist_horizontal_f.cwiseMax(dist_vertical_f);
-						comZero_1 = MatrixXd::Zero(dist_sub_f.rows(), dist_sub_f.cols());
-						dist_sub_f = comZero_1.cwiseMax(dist_sub_f);
-						eta_f = -1 * (dist_sub_f.array() - eta_d1) / (eta_d1 - eta_d0);
-						comOne_1 = MatrixXd::Ones(dist_sub_f.rows(), dist_sub_f.cols());
 
-						eta_f = (dist_sub_f.array() < eta_d0).select(comOne_1, eta_f);
-						eta_f = (dist_sub_f.array() > eta_d1).select(comZero_1, eta_f);
 
-						gx_f = gx_f.cwiseProduct(eta_f);
-						hy_f = hy_f.cwiseProduct(eta_f);
 
 
-						newXi.row(0) = Xi.row(0) + gx_f;
-						newXi.row(1) = Xi.row(1) + hy_f;
+	//		MatrixXd u_mesh_((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
+	//		MatrixXd v_mesh_((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
+	//		MatrixXd gx_mesh_ = MatrixXd::Zero((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
+	//		MatrixXd hy_mesh_ = MatrixXd::Zero((int)(ceil(imh_(i - 1, 0) / intv_mesh)), (int)(ceil(imw_(i - 1, 0) / intv_mesh)));
+	//		MatrixXd rbf, tmpLog;
+	//		for (int kf = 1; kf <= outSize; kf++){
+	//			dist2 = (u_mesh_.array() + xj_(0, kf - 1)).array().square() + (v_mesh_.array() + yj_(0, kf - 1)).array().square();
+	//			tmpLog = dist2.array().log();
+	//			rbf = 0.5*(dist2.cwiseProduct(tmpLog));
+	//			gx_mesh_ += wx(kf - 1, 0)*rbf;
+	//			hy_mesh_ += wy(kf - 1, 0)*rbf;
+	//		}
+	//		gx_mesh_ = (gx_mesh_ + a(0, 0)*u_mesh_ + a(1, 0)*v_mesh_).array() + a(2, 0);
+	//		hy_mesh_ = (hy_mesh_ + b(0, 0)*u_mesh_ + b(1, 0)*v_mesh_).array() + b(2, 0);
+	//		Mat m_gx, m_hy;
+	//		eigen2cv(gx_mesh_, m_gx);
+	//		eigen2cv(hy_mesh_, m_hy);
+	//		Mat m_gx_, m_hy_;
+	//		cv::resize(m_gx, m_gx_, cv::Size(imw_(i - 1, 0), imh_(i - 1, 0)), 0, 0, cv::INTER_CUBIC);
+	//		cv::resize(m_hy, m_hy_, cv::Size(imw_(i - 1, 0), imh_(i - 1, 0)), 0, 0, cv::INTER_CUBIC);
+	//		int gxCols = m_gx_.cols, gxRows = m_gx_.rows;
+	//		MatrixXd gx_im_(gxRows, gxCols), hy_im_(gxRows, gxCols);
+	//		cv2eigen(m_gx_, gx_im_);
+	//		cv2eigen(m_hy_, hy_im_);
 
-					}
-					if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1])
-						X_[ei - 1][0] = newXi;
-					else
-						X_[ei - 1][1] = newXi;
-				}
 
-			}
+	//		//smooth tansition to global transform
+	//		MatrixXd u0_u_im_ = u_im_.array() - sub_u0_;
+	//		u0_u_im_ *= -1;
+	//		MatrixXd u1_u_im_ = u_im_.array() - sub_u1_;
 
-		}//if(need_deform)
+	//		MatrixXd dist_horizontal = u0_u_im_.cwiseMax(u1_u_im_);
 
-	}//for ki = 1:im_n
+	//		MatrixXd v0_v_im_ = v_im_.array() - sub_v0_;
+	//		v0_v_im_ *= -1;
+	//		MatrixXd v1_v_im_ = v_im_.array() - sub_v1_;
+	//		MatrixXd dist_vertical = v0_v_im_.cwiseMax(v1_v_im_);
+
+	//		MatrixXd dist_sub = dist_horizontal.cwiseMax(dist_vertical);
+	//		MatrixXd comZero = MatrixXd::Zero(dist_sub.rows(), dist_sub.cols());
+	//		dist_sub = comZero.cwiseMax(dist_sub);
+	//		MatrixXd eta = -1 * (dist_sub.array() - eta_d1) / (eta_d1 - eta_d0);
+	//		MatrixXd comOne = MatrixXd::Ones(dist_sub.rows(), dist_sub.cols());
+
+	//		eta = (dist_sub.array() < eta_d0).select(comOne, eta);
+	//		eta = (dist_sub.array() > eta_d1).select(comZero, eta);
+
+	//		gx_im_ = gx_im_.cwiseProduct(eta);
+	//		hy_im_ = hy_im_.cwiseProduct(eta);
+	//		u_im_ = u_im_ - gx_im_;
+	//		v_im_ = v_im_ - hy_im_;
+
+
+
+	//		//update the feature locations
+	//		MatrixXd newXi, Xi;
+	//		for (int kj = ki + 1; kj <= im_n; kj++){
+
+	//			int j = floor((kj + refi - 2) % im_n) + 1;
+
+	//			if (Adj[i - 1][j - 1] > 0){
+
+	//				int ei = Adj[i - 1][j - 1];
+	//				if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1]){
+	//					Xi = X_[ei - 1][0];
+	//				}
+	//				else
+	//					Xi = X_[ei - 1][1];
+
+	//				newXi = Xi;
+
+	//				MatrixXd u_f, v_f;
+	//				MatrixXd gx_f, hy_f;
+	//				MatrixXd u0_u_f, u1_u_f;
+	//				MatrixXd v0_v_f, v1_v_f;
+	//				MatrixXd dist_horizontal_f, dist_vertical_f;
+	//				MatrixXd dist_sub_f;
+	//				MatrixXd eta_f;
+	//				MatrixXd comZero_1, comOne_1;
+	//				for (int kiter = 1; kiter <= 20; kiter++){
+	//					u_f = newXi.row(0);
+	//					v_f = newXi.row(1);
+	//					gx_f = MatrixXd::Zero(1, newXi.cols());
+	//					hy_f = MatrixXd::Zero(1, newXi.cols());
+
+	//					for (int kf = 1; kf <= outSize; kf++){
+
+	//						dist2 = (u_f.array() + xj_(0, kf - 1)).array().square() + (v_f.array() + yj_(0, kf - 1)).array().square();
+	//						tmpLog = dist2.array().log();
+	//						rbf = 0.5*(dist2.cwiseProduct(tmpLog));
+	//						gx_f = gx_f + wx(kf - 1, 0)*rbf;
+	//						hy_f = hy_f + wy(kf - 1, 0)*rbf;
+
+	//					}
+	//					gx_f = (gx_f + a(0, 0)*u_f + a(1, 0)*v_f).array() + a(2, 0);
+	//					hy_f = (hy_f + b(0, 0)*u_f + b(1, 0)*v_f).array() + b(2, 0);
+
+	//					u0_u_f = u_f.array() - sub_u0_;
+	//					u0_u_f *= -1;
+	//					u1_u_f = u_f.array() - sub_u1_;
+
+	//					dist_horizontal_f = u0_u_f.cwiseMax(u1_u_f);
+
+	//					v0_v_f = v_f.array() - sub_v0_;
+	//					v0_v_f *= -1;
+	//					v1_v_f = v_f.array() - sub_v1_;
+	//					dist_vertical_f = v0_v_f.cwiseMax(v1_v_f);
+
+	//					dist_sub_f = dist_horizontal_f.cwiseMax(dist_vertical_f);
+	//					comZero_1 = MatrixXd::Zero(dist_sub_f.rows(), dist_sub_f.cols());
+	//					dist_sub_f = comZero_1.cwiseMax(dist_sub_f);
+	//					eta_f = -1 * (dist_sub_f.array() - eta_d1) / (eta_d1 - eta_d0);
+	//					comOne_1 = MatrixXd::Ones(dist_sub_f.rows(), dist_sub_f.cols());
+
+	//					eta_f = (dist_sub_f.array() < eta_d0).select(comOne_1, eta_f);
+	//					eta_f = (dist_sub_f.array() > eta_d1).select(comZero_1, eta_f);
+
+	//					gx_f = gx_f.cwiseProduct(eta_f);
+	//					hy_f = hy_f.cwiseProduct(eta_f);
+
+
+	//					newXi.row(0) = Xi.row(0) + gx_f;
+	//					newXi.row(1) = Xi.row(1) + hy_f;
+
+	//				}
+	//				if (i == edge_list[ei - 1][0] && j == edge_list[ei - 1][1])
+	//					X_[ei - 1][0] = newXi;
+	//				else
+	//					X_[ei - 1][1] = newXi;
+	//			}
+
+	//		}
+
+	//	}//if(need_deform)
+
+	//}//for ki = 1:im_n
 
 
 

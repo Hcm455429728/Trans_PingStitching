@@ -1,51 +1,19 @@
-﻿生成启动时间为 2020/4/10 星期五 上午 10:41:17。
-     1>项目“C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”在节点 2 上(Build 个目标)。
+﻿生成启动时间为 2020/4/10 18:55:44。
+     1>项目“D:\code\Git_table\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
-         H:\vs2013软件\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc120.pdb" /Gd /TP /errorReport:prompt main.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc120.pdb" /Gd /TP /errorReport:prompt main.cpp
          main.cpp
-     1>main.cpp(172): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(200): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(277): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(366): warning C4551: 缺少参数列表的函数调用
-     1>main.cpp(618): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(655): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-     1>main.cpp(681): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(682): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(683): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(684): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(699): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(700): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(741): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(743): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(744): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
-     1>main.cpp(806): warning C4258: “i”: 忽略 For 循环中的定义；使用封闭范围中的定义
-                 main.cpp(662) : 忽略“i”的定义
-                 main.cpp(477) : 使用“i”的定义
+     1>main.cpp(175): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(203): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(265): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+     1>main.cpp(279): warning C4551: 缺少参数列表的函数调用
        Link:
-         H:\vs2013软件\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe" /INCREMENTAL /NOLOGO libeng.lib libmat.lib libmex.lib libmx.lib mclmcrrt.lib mclmcr.lib RewGlobal.lib opencv_ml2413d.lib opencv_calib3d2413d.lib opencv_contrib2413d.lib opencv_core2413d.lib opencv_features2d2413d.lib opencv_flann2413d.lib opencv_gpu2413d.lib opencv_highgui2413d.lib opencv_imgproc2413d.lib opencv_legacy2413d.lib opencv_objdetect2413d.lib opencv_ts2413d.lib opencv_video2413d.lib opencv_nonfree2413d.lib opencv_ocl2413d.lib opencv_photo2413d.lib opencv_stitching2413d.lib opencv_superres2413d.lib opencv_videostab2413d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\x64\Debug\Trans_PingStitching.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\x64\Debug\Trans_PingStitching.lib" /MACHINE:X64 x64\Debug\main.obj
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe" /INCREMENTAL /NOLOGO libeng.lib libmat.lib libmex.lib libmx.lib mclmcrrt.lib mclmcr.lib RewImage.lib opencv_ml2413d.lib opencv_calib3d2413d.lib opencv_contrib2413d.lib opencv_core2413d.lib opencv_features2d2413d.lib opencv_flann2413d.lib opencv_gpu2413d.lib opencv_highgui2413d.lib opencv_imgproc2413d.lib opencv_legacy2413d.lib opencv_objdetect2413d.lib opencv_ts2413d.lib opencv_video2413d.lib opencv_nonfree2413d.lib opencv_ocl2413d.lib opencv_photo2413d.lib opencv_stitching2413d.lib opencv_superres2413d.lib opencv_videostab2413d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.lib" /MACHINE:X64 x64\Debug\main.obj
          x64\Debug\mystitch.obj
          x64\Debug\transforms.obj
-         Trans_PingStitching.vcxproj -> C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe
-     1>已完成生成项目“C:\Users\Administrator\Desktop\gitup本地仓库\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”(Build 个目标)的操作。
+         Trans_PingStitching.vcxproj -> D:\code\Git_table\Trans_PingStitching\x64\Debug\Trans_PingStitching.exe
+     1>已完成生成项目“D:\code\Git_table\Trans_PingStitching\Trans_PingStitching\Trans_PingStitching.vcxproj”(Build 个目标)的操作。
 
 生成成功。
 
-已用时间 00:00:08.95
+已用时间 00:00:03.53
